@@ -28,9 +28,11 @@ You should specify a proper instance type with sufficient resource required to m
 For general linux jobs in AZAP, the base image should be based on **Ubuntun 20.04+**.
 
 ### System reserved resources (SOP)
-To prevent [cluster collapse](#why-should-we-need-system-reserved-resources), we recommend you to reserve sufficient system resources.
+To prevent [cluster shunts down or nodes crash](#why-should-we-need-system-reserved-resources), we recommend you to reserve sufficient system resources.
 
-For example, if the memory in your cluster is fully occupied, which will cause the operating system **OOM** or the **node not ready** issue.
+For example, if the memory in your cluster is fully occupied, which will cause the following issues:
+* Operating system **OOM** (Out of Memory).
+* `node not ready` error.
 
 #### Instance types setup
 
@@ -43,3 +45,7 @@ there might be some perf challenges on data io for Cosmos mount in azap, we are 
 ### What's the performance issues with LightGBM?
 
 ### Why should we need system reserved resources?
+
+**Node not ready error**
+
+When a node in your Kubernetes cluster shuts down or crashes, it enters the NotReady state, meaning it cannot be used to run pods. All stateful pods running on the node then become unavailable.
