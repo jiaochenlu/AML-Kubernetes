@@ -147,7 +147,7 @@ Upon AzureML extension deployment completes, it will create following resources 
    > * By default, the deployed kubernetes deployment resources are randomly deployed to 1 or more nodes of the cluster, and daemonset resource are deployed to ALL nodes. If you want to restrict the extension deployment to specific nodes, use `nodeSelector` configuration setting described as below.
 
 
-> **<span stype="color:orane">Notes**:</span>
+> **<span style="color:orange">Notes**:</span>
    > * **{EXTENSION-NAME}:** This is the extension name specified with ```az k8s-extension create --name``` CLI command. 
 
 ## Review AzureML deployment configuration settings
