@@ -21,7 +21,7 @@ To integrate your AZAP machine to AzureML workspace for model training workloads
 
 ### System reserved resources
 
-When the memory of a node is almost occupied by a pod, the node may run to OOM(out of memory) and crash, even it would enter the `NotReady` state, meaning it cannot be used to run pods. To avoid this risk, it's recommended to reserve some system memory resources for the nodes. 
+When the memory of a node is almost occupied by a pod, the node may run to OOM(out of memory) then would enter the `NotReady` state, meaning it cannot be used to run pods. To avoid this risk, it's recommended to reserve some system memory resources for the nodes. 
 
 On the AzureML extension side, in order to prevent the node from running to OOM due to the ML workload eating up all the memory, we will automatically reserve **5% of the system memory** for the node by running a daemonset on the node. 
 
@@ -29,16 +29,19 @@ On the AzureML extension side, in order to prevent the node from running to OOM 
 
 For training job on AZAP machine, it's recommended to setup the instance type with **resource requst equal to resource limit**.
 
-In the case of when the training job needs the entire node resource or half of the node resource, you need to create the instance type according to the following resource allocation rules:
+In the case where the training job needs the entire node resource or half of the node resource, you need to create the instance type according to the following resource allocation rules:
 
 More details about how to create the instance type, please refer to [here](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-kubernetes-instance-types).
 
 ### Expose the instance type and instance count as paramters
 
 To make the instance type and instance count of your training job configurable, you need to expose the instance type and instance count as parameters in your component spec yaml.
+
 ### Set environment variables for LightGBM jobs
 
-For training jobs with LightGBM, to avoid the [performance issues](#whats-the-performance-issues-with-lightgbm), the multi-thread settings in the job container should align with the required CPU core of the instance type you used. For example, for a training job that requires resource of `CPU 32 cores` and `Memory 256 GB`, you need to add the `environment_variable:` section to your component spec yaml and specify the following environment variables as the required CPU cores count:
+For training jobs using LightGBM, to avoid the [performance issues](#whats-the-performance-issues-with-lightgbm), the multi-thread settings in the job container should align with the required CPU core of the instance type you used. 
+
+For example, for a training job that requires resource of `CPU 32 cores` and `Memory 256 GB`, you need to add the `environment_variable:` section to your component spec yaml and specify the following environment variables as the required CPU cores count:
 
 ```yaml
 environment_variables:
@@ -51,7 +54,8 @@ More guidance on how to create and run machine learning pipelines using componen
 
 #### Use AMLARC_PRESTEP for automatically setting these environment variables
 
-To automatically set these environment variables, you can add the `AMLARC_PRESTEP` environment variable, which will trigger to run some scripts and functions provided by AzureML before the job running to automatically setup the cores count based on the instance type you used.
+To automatically set these environment variables mentioned above, you can just add the `AMLARC_PRESTEP` environment variable.
+which will run some scripts and AzureML-provided functions before the job running, to automatically setup the cores count based on the instance type you used.
 
 ```bash
 "environmentVariables": {"AMLARC_RESTEP": "export MKL_NUM_THREADS=` get_cores ` NUMEXPR_NUM_THREADS=` get_cores ` OMP_NUM_THREADS=` get_cores `"}
