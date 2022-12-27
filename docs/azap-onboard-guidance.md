@@ -39,9 +39,9 @@ To make the instance type and instance count of your training job configurable, 
 
 ### Set environment variables for LightGBM jobs
 
-For training jobs using LightGBM, to avoid the [performance issues](#whats-the-performance-issues-with-lightgbm), the multi-thread settings in the job container should align with the required CPU core of the instance type you used. 
+For training jobs using LightGBM, to avoid [performance issues](#whats-the-performance-issues-with-lightgbm), the multi-thread settings in the job container should align with the requested CPU cores of the instance type you used. 
 
-For example, for a training job that requires resource of `CPU 32 cores` and `Memory 256 GB`, you need to add the `environment_variable:` section to your component spec yaml and specify the following environment variables as the required CPU cores count:
+For example, for a training job requires a resource of `32c 256g`, you should specify an instance type with 32 core CPU request and 256GB memory request. Then you need to add the `environment_variable:` section to your component spec yaml and specify the following environment variables as the CPU request of this instance type:
 
 ```yaml
 environment_variables:
@@ -54,7 +54,11 @@ More guidance on how to create and run machine learning pipelines using componen
 
 #### Use AMLARC_PRESTEP for automatically setting these environment variables
 
-To automatically set these environment variables mentioned above, you can just add the `AMLARC_PRESTEP` environment variable.
+In addition to the LgihtGBM, other distributed algorithms frameworks you used may also need to configure the mutli-thread settings for better performance.
+
+In addition, we provide a `AMLARC_PRESTEP` environment variable to automatically set these environment variables mentioned above.
+
+To automatically set these environment variables mentioned above, you can use the `AMLARC_PRESTEP` environment variable.
 which will run some scripts and AzureML-provided functions before the job running, to automatically setup the cores count based on the instance type you used.
 
 ```bash
