@@ -33,12 +33,45 @@ The instance type is a pre-defined resource allocation rule for the node. For Az
 
 To simplify the usage, when installing the AzureML extension in the AzAP capacity cluster, a series of standardized instance types with different resource allocation will be automatically created based on the VM SKU for you to choose from.
 
->[!NOTE]
+> **<span style="color:orange">Notes**:</span> 
 >
 >1. The resource allocation mechanism of these managed instance types is follows the [instance type setup rule](#instance-types-setup-rules).
 >2. However, you can also create custom instance types according to your other resource requirement, but you need to follow the rules below as well.
 
 More details about how to create the instance type, please refer to [here](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-kubernetes-instance-types).
+
+#### Specify an instance type for your training job
+
+**For PRS job**
+
+To specify an instance type for a PRS job using SDK v1.5 in AzureML, you can set the `instance_type` parameter in the `runsettings.resource_layout.configure()` function. 
+
+For example, to specify the `32cpu128g` instance type, you can use the following code:
+
+```python
+PRS_train_step.runsettings.resource_layout.configure(instance_type='32cpu128g')
+```
+
+**For SweepComponent**
+
+Specially to specify an instance type for the Sweep step in SDK v1.5, you need to change the legacy SweepComponent(v1.5 stack) to the new sweep over command (v2 stack), and specify the instance type in the `--instance-type` parameter.
+
+For example, to specify the `32cpu128g` instance type, you can use the following code:
+
+```python
+sweep_job = command_job_for_sweep.sweep(
+    compute="amlarc-compute",
+    sampling_algorithm="random",
+    primary_metric="test-multi_logloss",
+    goal="Minimize",
+    instance_type="32cpu128g",
+)
+```
+
+> **<span style="color:orange">Notes**:</span> 
+>
+>The sweep syntax in v2 stack is supported in v1.5 as well, so you can still use SDK v
+1.5 to create sweep step on the new sweep over command definition syntax.
 
 #### Instance types setup rules
 
@@ -52,15 +85,43 @@ In the case where the training job needs the entire node resource or half of the
 
 To make the instance type and instance count of your training job configurable, you need to expose the instance type and instance count as parameters in your component spec yaml.
 
-<waiting for design from webxt\>
+<zhaotai contibute\>
 
-### Set environment variables for LightGBM jobs
+### Automation multi-thread and CPU cores settings via AMLARC_PRESTEP environment variables
 
-For training jobs using LightGBM, the multi-thread settings in the job container should align with the requested CPU cores of the instance type you used.
+For distributed training using some specific frameworks such as **LightGBM**, the **multi-thread settings** in the training job container should align with the **CPU cores requested** by the job. 
 
-For example, for a training job requires a resource of `32c256g`, you should specify an instance type with 32 core CPU request and 256GB memory request. Then you need to add the `environment_variable:` section to your component spec yaml and specify the following environment variables as the CPU request of this instance type:
+For using AMLARC compute in AzureML, we provide a *get_cores* function to get the actual requested CPU cores in cluster, and automatically set the multi-thread settings in the training job container accordingly.
+
+To use this capability, you just need to add the `AMLARC_PRESTEP` environment variable in the `environment_variables` section, exporting all framework environment variables and assign the `get_cores` function to them.
+
+```bash
+"AMLARC_RESTEP": "export <framework_env_variables>=` get_cores `"
+```
+
+Take distributed training with LightGBM as an example, in the one `AMLARC_PRESTEP` environment variable, you can export the `MKL_NUM_THREADS`, `NUMEXPR_NUM_THREADS` and `OMP_NUM_THREADS` environment variables and assign the `get_cores` function to them:
+
+```bash
+"environmentVariables": {"AMLARC_RESTEP": "export MKL_NUM_THREADS=` get_cores ` NUMEXPR_NUM_THREADS=` get_cores ` OMP_NUM_THREADS=` get_cores `"}
+```
+
+If you are using Component SDKv1.5, you can use the runsettings() function to set the `AMLARC_PRESTEP` environment variable:
+
+```python
+component_instance.runsettings.environment_variables = {"AMLARC_RESTEP": "export MKL_NUM_THREADS=` get_cores ` NUMEXPR_NUM_THREADS=` get_cores ` OMP_NUM_THREADS=` get_cores `"}
+```
+
+> **<span style="color:orange">Notes**:</span> 
+> 1. The `AMLARC_PRESTEP` environment variable is only supported on Linux jobs.
+> 1. You should use a appropriate instance type with sufficient resource required to meet your CPU cores needs.
+>    1. For example, for a training job requires a resource of `32c256g`, you should specify an instance type with 32 core CPU request configured.
+> 1. In the case where using the `AMLARC_PRESTEP` for other framework, you need to make sure the multi-thread corresponding environment variables of the framework are properly exported and assigned to the `get_cores` function.
+
+In addition to use the `AMLARC_PRESTEP` environment variable for automatically setting,
+, you can manually add the corresponding environment variables through the runsettings() function in SKD v1.5, or add in the `environment_variables` section of the component spec yaml, for example:
 
 ```yaml
+# LightGBM distributed training with 32 CPU cores
 environment_variables:
     "MKL_NUM_THREADS": "32"            
     "NUMEXPR_NUM_THREADS": "32"            
@@ -69,49 +130,14 @@ environment_variables:
 
 More guidance on how to create and run machine learning pipelines using components with the Azure Machine Learning CLI, please refer to [here](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-component-pipelines-cli).
 
-Belows are list of this environment variables setting examples of some specific job case:
 
-- LightGBM job
-- PRS job 
-- FAISS-ANN job
-- Sweep job
-
-Reset environment variables as runsetting for SweepComponent in SDK v1.5
-
-```python
-component_instance.environment_variables = {
-    "MKL_NUM_THREADS": "32",
-    "NUMEXPR_NUM_THREADS": "32",
-    "OMP_NUM_THREADS": "32"
-}
-```
-
-For the Sweepstep, you should define the command().sweep, and set the environment variables as
-
->[!NOTE]
+>**<span style="color:orange">Important**:</span> 
 >
-> If you use PyTorch DataLoader to load data, the value of parameter `num_workers` will represent the number of data loading processes that torch will create. So for the **FAISS-ANN** job, you should set OMP_NUM_THREADS = (CPU cores / PyTorch dataloader worker number).
-
-#### Use AMLARC_PRESTEP for automatically setting these environment variables
-
-In addition to the LightGBM, other distributed algorithms frameworks you used may also need to configure the multi-thread settings for better performance. We provide a `AMLARC_PRESTEP` environment variable to automatically set these environment variables for your training jobs.
-
-The `AMLARC_PRESTEP` environment variable will run some scripts and AzureML-provided functions before the training job running. You can just add it in the `environment_variables` section, export all framework environment variables and assign the `get_cores` function to them.
-
-```bash
-"AMLARC_RESTEP": "export <framework_env_variable>=` get_cores `"
-```
-
-Take LightGBM as an example, you can use the following `AMLARC_PRESTEP` to automatically set the `MKL_NUM_THREADS`, `NUMEXPR_NUM_THREADS` and `OMP_NUM_THREADS` environment variables for your training jobs:
-
-```bash
-"environmentVariables": {"AMLARC_RESTEP": "export MKL_NUM_THREADS=` get_cores ` NUMEXPR_NUM_THREADS=` get_cores ` OMP_NUM_THREADS=` get_cores `"}
-```
-
-> **<span style="color:orange">Notes**:</span> 
-> 1. The `AMLARC_PRESTEP` environment variable is only supported on Linux jobs.
-> 1. You should use a appropriate instance type with sufficient resource required to meet your CPU cores needs.
-> 1. In the case where using the `AMLARC_PRESTEP` for other framework, you need to make sure the multi-thread environment variables of the are properly exported and passed to the `get_cores` function.
+> If you use PyTorch DataLoader to load data, the value of parameter `num_workers` will represent the number of data loading processes that torch will create. 
+>
+>So for the **FAISS-ANN** job, you should set **OMP_NUM_THREADS = (CPU cores / PyTorch dataloader worker number)**.
+> 
+>The AMLARC_PRESTEP environment variable don't support this scenario, you need to manually set the OMP_NUM_THREADS environment variable.
 
 ### Base image for Linux jobs
 
