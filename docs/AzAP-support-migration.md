@@ -69,6 +69,13 @@ environment_variables:
 
 More guidance on how to create and run machine learning pipelines using components with the Azure Machine Learning CLI, please refer to [here](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-component-pipelines-cli).
 
+Belows are list of this environment variables setting examples of some specific job case:
+
+- LightGBM job
+- PRS job 
+- FAISS-ANN job
+- Sweep job
+
 Reset environment variables as runsetting for SweepComponent in SDK v1.5
 
 ```python
@@ -112,7 +119,7 @@ For general Linux jobs using AzAP capacity, the base image should be based on **
 
 ### Job retry debugging
     
-If the training job pod running in the cluster was terminated due to the node running to OOM, the job will be automatically retried to an available node.
+If the training job pod running in the cluster was terminated due to the node running to OOM, the job will be automatically retried to another available node.
 
 To further debug the root cause of the job try, you can get the job-node mapping information in the **amlarc_cr_bootstrap.log** under system_logs folder.
 
